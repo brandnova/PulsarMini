@@ -141,7 +141,8 @@
       });
     }
 
-    const socket = new WebSocket("ws://" + location.host + "/ws");
+    const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
+    const socket = new WebSocket(wsProtocol + location.host + "/ws");
 
     socket.onmessage = function(event) {
       let data;
