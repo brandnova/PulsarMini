@@ -1,0 +1,63 @@
+# ── Go ────────────────────────────────────────────────────────────
+# Compiled binaries
+/pulsarmini
+/pulsarmini.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test cache and coverage
+*.test
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+go.work.sum
+
+# ── Database ──────────────────────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ── Environment / secrets ─────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# ── Tailwind / Node.js project ───────────────────────────────────
+tailwind/node_modules/
+tailwind/.cache/
+tailwind/dist/
+
+# npm / yarn / pnpm lockfiles are fine to keep, but ignore caches
+.npm/
+.yarn/
+.pnpm-store/
+
+# ── Compiled CSS (generated — always rebuild from source) ─────────
+# Comment this out if you prefer to commit the compiled CSS
+# so deployments don't need a Node build step.
+static/css/tailwind.css
+
+# ── OS / editor ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Misc ──────────────────────────────────────────────────────────
+tmp/
+dist/

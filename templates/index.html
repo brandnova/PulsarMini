@@ -1,0 +1,205 @@
+{{ define "index.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulsarMini</title>
+  <link rel="stylesheet" href="/static/css/tailwind.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { background: #1a1a18; font-family: system-ui, sans-serif; color: #faf9f6; }
+
+    /* ── Animated background grid ── */
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(200,64,42,.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(200,64,42,.07) 1px, transparent 1px);
+      background-size: 48px 48px;
+      animation: grid-drift 20s linear infinite;
+    }
+    @keyframes grid-drift {
+      0%   { background-position: 0 0, 0 0; }
+      100% { background-position: 48px 48px, 48px 48px; }
+    }
+
+    /* ── Glow orbs ── */
+    .orb {
+      position: fixed; border-radius: 50%; filter: blur(80px);
+      opacity: 0.18; z-index: 0; pointer-events: none;
+      animation: orb-float 12s ease-in-out infinite alternate;
+    }
+    .orb-1 { width:520px; height:520px; background:#c8402a; top:-120px; right:-80px; animation-duration:14s; }
+    .orb-2 { width:380px; height:380px; background:#2a6e5e; bottom:-80px; left:-60px; animation-duration:10s; animation-delay:-5s; }
+    .orb-3 { width:260px; height:260px; background:#c8402a; bottom:20%; right:15%; opacity:.10; animation-duration:18s; animation-delay:-8s; }
+    @keyframes orb-float {
+      0%   { transform: translate(0,0) scale(1); }
+      100% { transform: translate(30px,20px) scale(1.08); }
+    }
+
+    /* ── Floating chat bubbles ── */
+    .bubble-demo {
+      position: fixed; z-index: 1; pointer-events: none;
+      opacity: 0; animation: bubble-rise 6s ease-in-out infinite;
+    }
+    .bubble-demo .bub {
+      padding: 9px 16px; border-radius: 18px; font-size: 13px;
+      max-width: 220px; line-height: 1.4;
+    }
+    .bub-sent { background: rgba(200,64,42,.75); color: #fff; border-bottom-right-radius: 4px; }
+    .bub-recv { background: rgba(250,249,246,.12); color: rgba(250,249,246,.85); border: 1px solid rgba(250,249,246,.12); border-bottom-left-radius: 4px; }
+    @keyframes bubble-rise {
+      0%   { opacity:0; transform: translateY(20px); }
+      15%  { opacity:1; }
+      80%  { opacity:1; }
+      100% { opacity:0; transform: translateY(-30px); }
+    }
+
+    /* ── Content ── */
+    .content {
+      position: relative; z-index: 10;
+      height: 100%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: rgba(250,249,246,.04);
+      border: 1px solid rgba(250,249,246,.1);
+      backdrop-filter: blur(24px);
+      border-radius: 24px;
+      padding: 48px 52px;
+      max-width: 460px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 24px 64px rgba(0,0,0,.4);
+    }
+
+    @media (max-width: 520px) {
+      .card { padding: 36px 28px; border-radius: 18px; }
+    }
+
+    .tagline {
+      font-size: .72rem; letter-spacing: .18em; text-transform: uppercase;
+      color: rgba(200,64,42,.9); font-weight: 600; margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: 2.8rem; font-weight: 800; letter-spacing: -.03em;
+      line-height: 1; color: #faf9f6; margin-bottom: 12px;
+    }
+
+    .sub {
+      font-size: .9rem; color: rgba(250,249,246,.45);
+      line-height: 1.65; margin-bottom: 36px;
+    }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #c8402a; color: #fff; font-size: .875rem; font-weight: 600;
+      padding: 11px 28px; border-radius: 12px; text-decoration: none;
+      transition: background .15s, transform .1s;
+    }
+    .btn-primary:hover { background: #a8331f; transform: translateY(-1px); }
+
+    .btn-ghost {
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(250,249,246,.2); color: rgba(250,249,246,.7);
+      font-size: .875rem; font-weight: 500;
+      padding: 11px 28px; border-radius: 12px; text-decoration: none;
+      transition: border-color .15s, color .15s, transform .1s;
+    }
+    .btn-ghost:hover { border-color: rgba(250,249,246,.45); color: #faf9f6; transform: translateY(-1px); }
+
+    .divider { font-size: .75rem; color: rgba(250,249,246,.25); margin: 0 8px; }
+
+    .pills { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 32px; }
+    .pill {
+      font-size: .68rem; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; padding: 4px 10px; border-radius: 99px;
+      border: 1px solid rgba(250,249,246,.12); color: rgba(250,249,246,.35);
+    }
+
+    /* ── App icon ── */
+    .app-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      object-fit: contain;
+      margin: 0 auto 20px;
+      display: block;
+      /* Subtle shadow so the icon reads on the dark card */
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,.35));
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-grid"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <!-- Decorative floating bubbles -->
+  <div class="bubble-demo" style="bottom:22%; left:6%; animation-delay:0s; animation-duration:7s;">
+    <div class="bub bub-sent">hey, did you get the pulse?</div>
+  </div>
+  <div class="bubble-demo" style="bottom:38%; left:3%; animation-delay:2.5s; animation-duration:8s;">
+    <div class="bub bub-recv">yeah, loved it ⚡</div>
+  </div>
+  <div class="bubble-demo" style="bottom:18%; right:5%; animation-delay:1.2s; animation-duration:9s;">
+    <div class="bub bub-recv">queued a pulse for you 🕐</div>
+  </div>
+  <div class="bubble-demo" style="bottom:40%; right:4%; animation-delay:4s; animation-duration:7.5s;">
+    <div class="bub bub-sent">the timing is everything</div>
+  </div>
+  <div class="bubble-demo" style="top:18%; left:8%; animation-delay:1.8s; animation-duration:8.5s;">
+    <div class="bub bub-recv">waiting for the next tick...</div>
+  </div>
+  <div class="bubble-demo" style="top:28%; right:6%; animation-delay:3.5s; animation-duration:6.5s;">
+    <div class="bub bub-sent">⚡ pulse fired</div>
+  </div>
+
+  <div class="content">
+    <div class="card">
+
+      <!-- App icon -->
+      <img src="/static/img/PulseMiniIcon.png"
+           alt="PulsarMini"
+           class="app-icon">
+
+      <p class="tagline">Realtime · Pulsed · Private</p>
+
+      <h1>Chat on<br>the pulse</h1>
+
+      <p class="sub">
+        Send messages instantly or queue them to ride<br>
+        the next pulse — a shared, server-timed heartbeat.
+      </p>
+
+      {{ if .LoggedIn }}
+        <a href="/dashboard" class="btn-primary">Go to Dashboard</a>
+      {{ else }}
+        <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
+          <a href="/register" class="btn-primary">Get started</a>
+          <span class="divider">·</span>
+          <a href="/login" class="btn-ghost">Log in</a>
+        </div>
+      {{ end }}
+
+      <div class="pills">
+        <span class="pill">WebSockets</span>
+        <span class="pill">Redis pub/sub</span>
+        <span class="pill">Pulse clock</span>
+        <span class="pill">Go</span>
+        <span class="pill">HTMX</span>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>
+{{ end }}

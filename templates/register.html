@@ -1,0 +1,228 @@
+{{ define "register.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register – PulsarMini</title>
+  <link rel="stylesheet" href="/static/css/tailwind.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; margin: 0; }
+    body { background-color: #1a1a18; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+
+    .card {
+      background: #faf9f6;
+      border: 1px solid #e0ddd6;
+      border-radius: 16px;
+      padding: 36px 32px;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    @media (max-width: 480px) {
+      .card { padding: 28px 20px; border-radius: 12px; }
+    }
+
+    label { display:block; font-size:.7rem; font-weight:600; color:#4a4a45; text-transform:uppercase; letter-spacing:.1em; margin-bottom:5px; }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      background: #f2f0eb;
+      border: 1px solid #e0ddd6;
+      border-radius: 8px;
+      padding: 9px 14px;
+      font-size: .875rem;
+      color: #1a1a18;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus {
+      border-color: #c8402a;
+      box-shadow: 0 0 0 3px rgba(200,64,42,.12);
+    }
+    input.error-field {
+      border-color: #c8402a;
+      box-shadow: 0 0 0 3px rgba(200,64,42,.12);
+    }
+
+    .field-row { display:flex; gap:12px; }
+    .field-row > div { flex:1; min-width:0; }
+
+    .form-group { margin-bottom:14px; }
+
+    .error-msg {
+      font-size:.72rem; color:#c8402a; margin-top:4px; display:none;
+    }
+    .error-msg.visible { display:block; }
+
+    .btn {
+      width:100%; padding:10px; border-radius:8px; border:none; cursor:pointer;
+      font-size:.875rem; font-weight:600; transition:background .15s;
+    }
+    .btn-primary { background:#c8402a; color:#fff; }
+    .btn-primary:hover { background:#a8331f; }
+    .btn-primary:disabled { background:#e0ddd6; color:#8a8a82; cursor:not-allowed; }
+
+    .bottom-link { text-align:center; font-size:.8rem; color:#8a8a82; margin-top:20px; }
+    .bottom-link a { color:#c8402a; font-weight:500; text-decoration:none; }
+    .bottom-link a:hover { text-decoration:underline; }
+
+    .password-wrap { position:relative; }
+    .toggle-pw {
+      position:absolute; right:10px; top:50%; transform:translateY(-50%);
+      background:none; border:none; cursor:pointer; color:#8a8a82; padding:0;
+      display:flex; align-items:center;
+    }
+    .toggle-pw:hover { color:#1a1a18; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <!-- Logo -->
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:24px;">
+      <span style="width:8px;height:8px;border-radius:50%;background:#c8402a;display:inline-block;"></span>
+      <span style="font-size:.85rem;font-weight:800;letter-spacing:-.01em;color:#1a1a18;">PulsarMini</span>
+    </div>
+
+    <h1 style="font-size:1.4rem;font-weight:800;color:#1a1a18;margin:0 0 4px;">Create account</h1>
+    <p style="font-size:.82rem;color:#8a8a82;margin:0 0 24px;">Join PulsarMini</p>
+
+    <form id="register-form" method="POST" action="/register" novalidate>
+
+      <!-- Name row -->
+      <div class="form-group field-row">
+        <div>
+          <label for="first_name">First name</label>
+          <input id="first_name" name="first_name" type="text" placeholder="Ada" autocomplete="given-name">
+          <p class="error-msg" id="err-first_name">Required</p>
+        </div>
+        <div>
+          <label for="last_name">Last name</label>
+          <input id="last_name" name="last_name" type="text" placeholder="Lovelace" autocomplete="family-name">
+          <p class="error-msg" id="err-last_name">Required</p>
+        </div>
+      </div>
+
+      <!-- Username -->
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" placeholder="ada_lovelace" autocomplete="username">
+        <p class="error-msg" id="err-username">Required</p>
+      </div>
+
+      <!-- Email -->
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email">
+        <p class="error-msg" id="err-email">Enter a valid email</p>
+      </div>
+
+      <!-- Password -->
+      <div class="form-group">
+        <label for="password">Password</label>
+        <div class="password-wrap">
+          <input id="password" name="password" type="password" placeholder="••••••••" autocomplete="new-password">
+          <button type="button" class="toggle-pw" onclick="togglePw('password', this)" tabindex="-1">
+            <svg id="eye-password" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+          </button>
+        </div>
+        <p class="error-msg" id="err-password">Minimum 6 characters</p>
+      </div>
+
+      <!-- Confirm password -->
+      <div class="form-group">
+        <label for="confirm_password">Confirm password</label>
+        <div class="password-wrap">
+          <input id="confirm_password" name="confirm_password" type="password" placeholder="••••••••" autocomplete="new-password">
+          <button type="button" class="toggle-pw" onclick="togglePw('confirm_password', this)" tabindex="-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+          </button>
+        </div>
+        <p class="error-msg" id="err-confirm_password">Passwords do not match</p>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="submit-btn" style="margin-top:6px;">
+        Create account
+      </button>
+    </form>
+
+    <p class="bottom-link">
+      Already have an account? <a href="/login">Log in</a>
+    </p>
+  </div>
+
+  <script>
+    function togglePw(id, btn) {
+      const input = document.getElementById(id);
+      input.type = input.type === 'password' ? 'text' : 'password';
+      // swap icon opacity as a simple visual cue
+      btn.style.opacity = input.type === 'text' ? '1' : '0.5';
+    }
+
+    function setError(id, msg) {
+      const input = document.getElementById(id);
+      const err   = document.getElementById('err-' + id);
+      input.classList.add('error-field');
+      if (msg) err.textContent = msg;
+      err.classList.add('visible');
+    }
+
+    function clearError(id) {
+      const input = document.getElementById(id);
+      const err   = document.getElementById('err-' + id);
+      input.classList.remove('error-field');
+      err.classList.remove('visible');
+    }
+
+    // Clear error on input
+    ['first_name','last_name','username','email','password','confirm_password'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => clearError(id));
+    });
+
+    document.getElementById('register-form').addEventListener('submit', function(e) {
+      let valid = true;
+
+      const fields = ['first_name','last_name','username','email','password'];
+      fields.forEach(id => {
+        if (!document.getElementById(id).value.trim()) {
+          setError(id, 'This field is required');
+          valid = false;
+        }
+      });
+
+      const email = document.getElementById('email').value;
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setError('email', 'Enter a valid email address');
+        valid = false;
+      }
+
+      const pw  = document.getElementById('password').value;
+      const cpw = document.getElementById('confirm_password').value;
+
+      if (pw && pw.length < 6) {
+        setError('password', 'Minimum 6 characters');
+        valid = false;
+      }
+
+      if (pw !== cpw) {
+        setError('confirm_password', 'Passwords do not match');
+        valid = false;
+      }
+
+      if (!valid) e.preventDefault();
+    });
+  </script>
+
+</body>
+</html>
+{{ end }}

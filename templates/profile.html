@@ -1,0 +1,139 @@
+{{ define "profile.html" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>
+    {{ if .IsOwn }}My Profile{{ else }}{{ .ProfileUser.Username }}{{ end }} – PulsarMini
+  </title>
+  <link rel="stylesheet" href="/static/css/tailwind.css">
+  <script src="/static/js/htmx.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { background: #1a1a18; color: #1a1a18; }
+    .topbar { background:#faf9f6; border-bottom:1px solid #e0ddd6; height:56px; }
+    input:focus { outline:2px solid #c8402a; outline-offset:0; }
+
+    @keyframes fade-up {
+      0%   { opacity:0; transform:translateY(12px); }
+      100% { opacity:1; transform:translateY(0); }
+    }
+    .fade-up { animation: fade-up .3s ease-out forwards; }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+  <!-- Top bar -->
+  <header class="topbar flex items-center justify-between px-6 shrink-0">
+    <div class="flex items-center gap-3">
+      <a href="/dashboard" class="text-ink-muted hover:text-accent transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </a>
+      <span class="w-2 h-2 rounded-full bg-accent"></span>
+      <span class="font-bold text-sm tracking-tight text-ink">PulsarMini</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <a href="/profile" class="text-sm text-ink-muted hover:text-accent transition-colors font-medium">
+        {{ .Username }}
+      </a>
+      <form method="POST" action="/logout">
+        <button class="text-xs text-accent hover:underline font-medium">Logout</button>
+      </form>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <main class="flex-1 overflow-y-auto" style="background:#1a1a18;">
+    <div class="max-w-lg mx-auto px-4 py-12 fade-up">
+
+      <!-- Card -->
+      <div class="rounded-2xl overflow-hidden" style="background:#f2f0eb; border:1px solid #e0ddd6;">
+
+        <!-- Cover -->
+        <div class="h-24 relative"
+             style="background: linear-gradient(135deg, #c8402a 0%, #2a6e5e 100%); opacity:.85;">
+        </div>
+
+        <!-- Avatar + actions -->
+        <div class="px-6 pb-6">
+          <div class="flex items-end justify-between -mt-6 mb-5">
+            <div class="w-16 h-16 rounded-full bg-accent border-4 border-paper-alt flex items-center justify-center text-white font-bold text-2xl shrink-0">
+              {{ slice .ProfileUser.Username 0 1 }}
+            </div>
+            {{ if .IsOwn }}
+              <!-- Own profile: no action button yet, placeholder for edit -->
+              <span class="text-xs text-ink-muted italic">Your profile</span>
+            {{ else if .AreFriends }}
+              <a href="/chat/{{ .ProfileUser.Username }}"
+                 class="text-xs font-semibold bg-accent-alt text-white rounded-lg px-4 py-1.5 hover:opacity-80 transition-opacity">
+                Message
+              </a>
+            {{ else }}
+              <button
+                hx-post="/friends/request"
+                hx-vals='{"username":"{{ .ProfileUser.Username }}"}'
+                hx-swap="none"
+                class="text-xs font-semibold border border-accent text-accent rounded-lg px-4 py-1.5 hover:bg-accent hover:text-white transition-colors">
+                Add friend
+              </button>
+            {{ end }}
+          </div>
+
+          <!-- Name & info -->
+          <h1 class="text-xl font-bold text-ink">
+            {{ if .ProfileUser.FirstName }}
+              {{ .ProfileUser.FirstName }} {{ .ProfileUser.LastName }}
+            {{ else }}
+              {{ .ProfileUser.Username }}
+            {{ end }}
+          </h1>
+          <p class="text-sm text-ink-muted mt-0.5 mb-4">@{{ .ProfileUser.Username }}</p>
+
+          {{ if .IsOwn }}
+          <div class="border-t border-rule pt-4 mb-4">
+            <p class="text-xs text-ink-soft">{{ .ProfileUser.Email }}</p>
+          </div>
+          {{ end }}
+
+          <div class="border-t border-rule pt-4">
+            <p class="text-xs text-ink-soft">
+              Member since {{ .ProfileUser.CreatedAt.Format "January 2006" }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {{ if .IsOwn }}
+      <!-- Edit form -->
+      <div class="mt-6 rounded-2xl p-6" style="background:#f2f0eb; border:1px solid #e0ddd6;">
+        <h2 class="text-sm font-semibold text-ink mb-4">Edit profile</h2>
+        <form method="POST" action="/profile/update" class="flex flex-col gap-4">
+          <div class="flex gap-3">
+            <div class="flex flex-col gap-1 flex-1">
+              <label class="text-xs font-semibold text-ink-soft uppercase tracking-widest">First name</label>
+              <input name="first_name" type="text" value="{{ .ProfileUser.FirstName }}"
+                class="bg-paper border border-rule text-ink rounded-lg px-3 py-2 text-sm">
+            </div>
+            <div class="flex flex-col gap-1 flex-1">
+              <label class="text-xs font-semibold text-ink-soft uppercase tracking-widest">Last name</label>
+              <input name="last_name" type="text" value="{{ .ProfileUser.LastName }}"
+                class="bg-paper border border-rule text-ink rounded-lg px-3 py-2 text-sm">
+            </div>
+          </div>
+          <button type="submit"
+            class="bg-accent hover:bg-red-700 text-white font-semibold py-2 rounded-lg text-sm transition-colors">
+            Save changes
+          </button>
+        </form>
+      </div>
+      {{ end }}
+
+    </div>
+  </main>
+
+</body>
+</html>
+{{ end }}
