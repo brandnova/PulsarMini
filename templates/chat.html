@@ -11,7 +11,7 @@
 
     html, body {
       height: 100%;
-      overflow: hidden; /* page itself never scrolls */
+      overflow: hidden;
       margin: 0;
     }
 
@@ -22,9 +22,8 @@
       flex-direction: column;
     }
 
-    /* ── Layout ── */
     .topbar  { background:#faf9f6; border-bottom:1px solid #e0ddd6; height:56px; flex-shrink:0; }
-    .body-row { flex:1; display:flex; overflow:hidden; } /* fills remaining height exactly */
+    .body-row { flex:1; display:flex; overflow:hidden; }
 
     .sidebar {
       background:#f2f0eb;
@@ -33,7 +32,7 @@
       min-width:260px;
       display:flex;
       flex-direction:column;
-      overflow:hidden;           /* sidebar itself clips; inner list scrolls */
+      overflow:hidden;
       flex-shrink:0;
       transition: width 0.22s cubic-bezier(.4,0,.2,1),
                   min-width 0.22s cubic-bezier(.4,0,.2,1),
@@ -41,7 +40,6 @@
     }
     .sidebar.collapsed { width:0 !important; min-width:0 !important; opacity:0; }
 
-    /* friends list inside sidebar is the only scrollable part of the sidebar */
     #friends-sidebar-scroll { flex:1; overflow-y:auto; }
 
     .chatpane {
@@ -52,7 +50,6 @@
       background:#fefefe;
     }
 
-    /* THE only scrollable element in the chat */
     #message-list {
       flex:1;
       overflow-y:auto;
@@ -64,14 +61,11 @@
 
     .chatbar { background:#faf9f6; border-top:1px solid #e0ddd6; flex-shrink:0; padding:12px 20px; }
 
-    /* ── Misc ── */
     .friend-item:hover { background:#e0ddd6; }
     input:focus, textarea:focus { outline:2px solid #c8402a; outline-offset:0; }
 
-    /* hide scrollbar on inputs/textareas */
     textarea { overflow:hidden; resize:none; max-height:120px; }
 
-    /* ── Animations ── */
     @keyframes pulse-ring {
       0%   { box-shadow:0 0 0 0 rgba(200,64,42,.7), 0 0 0 0 rgba(200,64,42,.3); }
       70%  { box-shadow:0 0 0 10px rgba(200,64,42,0), 0 0 0 20px rgba(200,64,42,0); }
@@ -97,7 +91,6 @@
     }
     .pulse-input-open { animation:slide-up .18s ease-out forwards; }
 
-    /* ── Attachment dropdown ── */
     .attach-menu {
       position:absolute;
       bottom:calc(100% + 8px);
@@ -119,7 +112,6 @@
     }
     .attach-item:hover { background:#e0ddd6; }
 
-    /* ── Sidebar toggle ── */
     .sidebar-toggle {
       width:22px; height:22px; display:flex; align-items:center;
       justify-content:center; border-radius:5px; cursor:pointer;
@@ -127,21 +119,27 @@
     }
     .sidebar-toggle:hover { background:#e0ddd6; color:#1a1a18; }
 
-    /* ── Scrollbar polish (message list only) ── */
     #message-list::-webkit-scrollbar       { width:4px; }
     #message-list::-webkit-scrollbar-thumb { background:#e0ddd6; border-radius:2px; }
     #message-list::-webkit-scrollbar-track { background:transparent; }
 
     .htmx-indicator { display:none; }
     .htmx-request .htmx-indicator { display:block; }
+
+    /* WS status dot */
+    #ws-status {
+      width:6px; height:6px; border-radius:50%; background:#8a8a82;
+      transition:background .3s;
+    }
+    #ws-status.connected    { background:#2a6e5e; }
+    #ws-status.reconnecting { background:#c8402a; animation:pulse-ring 1s ease-out infinite; }
   </style>
 </head>
 <body>
 
-  <!-- ── Top bar ── -->
+  <!-- Top bar -->
   <header class="topbar flex items-center justify-between px-4 gap-3">
 
-    <!-- Left -->
     <div class="flex items-center gap-2 shrink-0">
       <a href="/dashboard" class="sidebar-toggle" title="Back to dashboard">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -150,11 +148,9 @@
       </a>
       <button id="sidebar-toggle-btn" onclick="toggleSidebar()"
               class="sidebar-toggle" title="Toggle sidebar">
-        <!-- hamburger = sidebar is CLOSED, show it to open -->
         <svg id="icon-hamburger" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
         </svg>
-        <!-- X = sidebar is OPEN, show it to close -->
         <svg id="icon-x" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
@@ -163,7 +159,6 @@
       <span class="font-bold text-sm tracking-tight text-ink">PulsarMini</span>
     </div>
 
-    <!-- Centre: friend name — clicking username goes to their profile -->
     <div class="flex items-center gap-2 absolute left-1/2 -translate-x-1/2">
       <span class="w-6 h-6 rounded-full bg-accent-alt flex items-center justify-center text-white text-xs font-bold">
         {{ slice .FriendUsername 0 1 }}
@@ -174,8 +169,10 @@
       </a>
     </div>
 
-    <!-- Right -->
-    <div class="flex items-center gap-4 shrink-0">
+    <div class="flex items-center gap-3 shrink-0">
+      <!-- WS status indicator -->
+      <span id="ws-status" title="Connection status"></span>
+
       <div class="flex items-center gap-1.5" title="Next pulse">
         <span id="pulse-dot" class="w-2 h-2 rounded-full bg-accent"
               style="box-shadow:0 0 0 3px rgba(200,64,42,.15)"></span>
@@ -192,16 +189,12 @@
 
   </header>
 
-  <!-- ── Body row (sidebar + chat) ── -->
   <div class="body-row">
 
-    <!-- Sidebar -->
     {{ template "sidebar" . }}
 
-    <!-- Chat pane -->
     <div class="chatpane">
 
-      <!-- Messages — ONLY scrollable element -->
       <div id="message-list">
         {{ if .Messages }}
           {{ range .Messages }}
@@ -214,10 +207,9 @@
         {{ end }}
       </div>
 
-      <!-- Input bar -->
       <div class="chatbar">
 
-        <!-- Pulse input — sits ABOVE the main row, hidden by default -->
+        <!-- Pulse input — above main row, hidden by default -->
         <div id="pulse-input-wrapper" class="hidden mb-2">
           <div class="pulse-input-open">
             <form id="pulse-form"
@@ -259,7 +251,6 @@
         <!-- Main input row -->
         <div class="flex gap-2 items-end relative">
 
-          <!-- + button with dropdown -->
           <div class="relative" id="attach-wrapper">
             <button type="button" id="attach-btn" onclick="toggleAttachMenu()"
                     class="w-8 h-8 rounded-lg flex items-center justify-center text-ink-muted hover:text-ink hover:bg-rule transition-colors shrink-0 mb-0.5"
@@ -275,7 +266,6 @@
             </div>
           </div>
 
-          <!-- Send form -->
           <form id="send-form"
                 hx-post="/chat/send"
                 hx-target="#message-list"
@@ -301,13 +291,13 @@
   </div>
 
   <script>
-    // ── Elements ──────────────────────────────────────────────────
-    const messageList  = document.getElementById('message-list');
-    const pulseDot     = document.getElementById('pulse-dot');
-    const pulseTimer   = document.getElementById('pulse-timer');
-    const sidebar      = document.getElementById('sidebar');
+    const messageList   = document.getElementById('message-list');
+    const pulseDot      = document.getElementById('pulse-dot');
+    const pulseTimer    = document.getElementById('pulse-timer');
+    const sidebar       = document.getElementById('sidebar');
     const iconHamburger = document.getElementById('icon-hamburger');
     const iconX         = document.getElementById('icon-x');
+    const wsStatus      = document.getElementById('ws-status');
 
     const MY_USER_ID = {{ .UserID }};
     const CONV_ID    = {{ .ConversationID }};
@@ -335,31 +325,24 @@
       if (e) e.remove();
     }
 
-    // ── Textarea auto-resize (no scrollbar) ───────────────────────
+    // ── Textarea auto-resize ──────────────────────────────────────
     function autoResize(el) {
       el.style.height = 'auto';
       el.style.height = Math.min(el.scrollHeight, 120) + 'px';
     }
 
     // ── Sidebar toggle ────────────────────────────────────────────
-    // Sidebar starts OPEN: X is visible (click to close), hamburger hidden
     let sidebarOpen = true;
-
     function toggleSidebar() {
       sidebarOpen = !sidebarOpen;
       sidebar.classList.toggle('collapsed', !sidebarOpen);
-      // When open: show X (to close). When closed: show hamburger (to open).
       iconX.classList.toggle('hidden', !sidebarOpen);
       iconHamburger.classList.toggle('hidden', sidebarOpen);
     }
 
     // ── Attachment dropdown ───────────────────────────────────────
     const attachMenu = document.getElementById('attach-menu');
-
-    function toggleAttachMenu() {
-      attachMenu.classList.toggle('hidden');
-    }
-
+    function toggleAttachMenu() { attachMenu.classList.toggle('hidden'); }
     document.addEventListener('click', function(e) {
       if (!document.getElementById('attach-wrapper').contains(e.target)) {
         attachMenu.classList.add('hidden');
@@ -369,23 +352,20 @@
     // ── Pulse input ───────────────────────────────────────────────
     const pulseWrapper = document.getElementById('pulse-input-wrapper');
     const pulseInput   = document.getElementById('pulse-input');
-
     function openPulseInput() {
       attachMenu.classList.add('hidden');
       pulseWrapper.classList.remove('hidden');
       pulseInput.focus();
     }
-
     function closePulseInput() {
       pulseWrapper.classList.add('hidden');
       pulseInput.value = '';
       pulseInput.style.height = 'auto';
     }
 
-    // ── Pulse countdown (seeded from server) ──────────────────────
+    // ── Pulse countdown ───────────────────────────────────────────
     const PULSE_MS_REMAINING = {{ .PulseMS }};
     let nextPulseAt = Date.now() + PULSE_MS_REMAINING;
-
     function updateCountdown() {
       const remaining = Math.max(0, nextPulseAt - Date.now());
       const m = Math.floor(remaining / 60000);
@@ -413,44 +393,71 @@
         </div>`;
     }
 
-    // ── WebSocket ─────────────────────────────────────────────────
-    const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
-    const socket = new WebSocket(wsProtocol + location.host + "/ws");
+    // ── WebSocket with auto-reconnect ─────────────────────────────
+    const wsProtocol   = location.protocol === "https:" ? "wss://" : "ws://";
+    const wsURL        = wsProtocol + location.host + "/ws";
+    let socket;
+    let reconnectDelay = 1000;
+    const maxDelay     = 30000;
 
-    socket.onmessage = function(event) {
-      let data;
-      try { data = JSON.parse(event.data); }
-      catch(e) { console.warn("PulsarMini: non-JSON ws message", event.data); return; }
+    function connectWebSocket() {
+      wsStatus.className = 'reconnecting';
+      socket = new WebSocket(wsURL);
 
-      switch(data.type) {
+      socket.onopen = function() {
+        console.log("PulsarMini: WebSocket connected");
+        reconnectDelay = 1000;
+        wsStatus.className = 'connected';
+      };
 
-        case 'pulse.tick':
-          pulseDot.classList.add('pulse-ring');
-          setTimeout(() => pulseDot.classList.remove('pulse-ring'), 1000);
-          nextPulseAt = Date.now() + (2 * 60 * 1000);
-          updateCountdown();
-          break;
+      socket.onmessage = function(event) {
+        let data;
+        try { data = JSON.parse(event.data); }
+        catch(e) { console.warn("PulsarMini: non-JSON ws message", event.data); return; }
 
-        case 'pulse.message.created':
-          document.querySelectorAll(`.pulse-queued[data-conv="${CONV_ID}"]`)
-            .forEach(el => el.remove());
-          messageList.insertAdjacentHTML('beforeend', buildBubble(data));
-          scrollToBottom(true);
-          const e1 = document.getElementById('empty-state');
-          if (e1) e1.remove();
-          break;
+        switch(data.type) {
 
-        case 'message.created':
-          messageList.insertAdjacentHTML('beforeend', buildBubble(data));
-          scrollToBottom(true);
-          const e2 = document.getElementById('empty-state');
-          if (e2) e2.remove();
-          break;
-      }
-    };
+          case 'pulse.tick':
+            pulseDot.classList.add('pulse-ring');
+            setTimeout(() => pulseDot.classList.remove('pulse-ring'), 1000);
+            nextPulseAt = Date.now() + (2 * 60 * 1000);
+            updateCountdown();
+            break;
 
-    socket.onclose = () => console.log("PulsarMini: WebSocket closed");
-    socket.onerror = (e) => console.error("PulsarMini: WebSocket error", e);
+          case 'pulse.message.created':
+            document.querySelectorAll(`.pulse-queued[data-conv="${CONV_ID}"]`)
+              .forEach(el => el.remove());
+            messageList.insertAdjacentHTML('beforeend', buildBubble(data));
+            scrollToBottom(true);
+            const e1 = document.getElementById('empty-state');
+            if (e1) e1.remove();
+            break;
+
+          case 'message.created':
+            messageList.insertAdjacentHTML('beforeend', buildBubble(data));
+            scrollToBottom(true);
+            const e2 = document.getElementById('empty-state');
+            if (e2) e2.remove();
+            break;
+        }
+      };
+
+      socket.onclose = function(event) {
+        wsStatus.className = 'reconnecting';
+        console.log(`PulsarMini: WebSocket closed (code ${event.code}), reconnecting in ${reconnectDelay}ms`);
+        setTimeout(() => {
+          reconnectDelay = Math.min(reconnectDelay * 2, maxDelay);
+          connectWebSocket();
+        }, reconnectDelay);
+      };
+
+      socket.onerror = function(e) {
+        console.error("PulsarMini: WebSocket error", e);
+        // onclose fires after onerror — reconnect is handled there
+      };
+    }
+
+    connectWebSocket();
   </script>
 
 </body>

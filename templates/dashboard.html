@@ -38,6 +38,14 @@
       border:none; background:transparent;
     }
     .sidebar-toggle:hover { background:#e0ddd6; color:#1a1a18; }
+
+    /* WS status dot */
+    #ws-status {
+      width:6px; height:6px; border-radius:50%; background:#8a8a82;
+      transition:background .3s;
+    }
+    #ws-status.connected    { background:#2a6e5e; }
+    #ws-status.reconnecting { background:#c8402a; }
   </style>
 </head>
 <body>
@@ -55,7 +63,8 @@
       <span class="w-2 h-2 rounded-full bg-accent"></span>
       <span class="font-bold text-sm tracking-tight text-ink">PulsarMini</span>
     </div>
-    <div class="flex items-center gap-4">
+    <div class="flex items-center gap-3">
+      <span id="ws-status" title="Connection status"></span>
       <a href="/profile" class="text-sm text-ink-muted hover:text-accent transition-colors font-medium">
         {{ .User.Username }}
       </a>
@@ -100,13 +109,15 @@
   </div>
 
   <script>
-    const MY_USER_ID  = {{ .User.ID }};
-    const notifArea   = document.getElementById('notif-area');
-    const sidebar     = document.getElementById('sidebar');
-    const iconX       = document.getElementById('icon-x');
+    const MY_USER_ID    = {{ .User.ID }};
+    const notifArea     = document.getElementById('notif-area');
+    const sidebar       = document.getElementById('sidebar');
+    const iconX         = document.getElementById('icon-x');
     const iconHamburger = document.getElementById('icon-hamburger');
-    let sidebarOpen   = true;
+    const wsStatus      = document.getElementById('ws-status');
+    let sidebarOpen     = true;
 
+    // ── Sidebar toggle ────────────────────────────────────────────
     function toggleSidebar() {
       sidebarOpen = !sidebarOpen;
       sidebar.classList.toggle('collapsed', !sidebarOpen);
@@ -114,6 +125,7 @@
       iconHamburger.classList.toggle('hidden', sidebarOpen);
     }
 
+    // ── Toast helper ──────────────────────────────────────────────
     function showToast(html, duration, clickUrl) {
       const wrap = document.createElement('div');
       wrap.style.pointerEvents = 'auto';
@@ -131,6 +143,7 @@
       }, duration || 5000);
     }
 
+    // ── Unread dot ────────────────────────────────────────────────
     function markUnread(username) {
       document.querySelectorAll(`a[href="/chat/${username}"]`).forEach(link => {
         if (!link.querySelector('.unread-dot')) {
@@ -141,50 +154,76 @@
       });
     }
 
-    const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
-    const socket = new WebSocket(wsProtocol + location.host + "/ws");
+    // ── WebSocket with auto-reconnect ─────────────────────────────
+    const wsProtocol   = location.protocol === "https:" ? "wss://" : "ws://";
+    const wsURL        = wsProtocol + location.host + "/ws";
+    let socket;
+    let reconnectDelay = 1000;
+    const maxDelay     = 30000;
 
-    socket.onmessage = function(event) {
-      let data;
-      try { data = JSON.parse(event.data); } catch(e) { return; }
+    function connectWebSocket() {
+      wsStatus.className = 'reconnecting';
+      socket = new WebSocket(wsURL);
 
-      switch(data.type) {
-        case 'friend.requested':
-          htmx.ajax('GET', '/friends/pending-partial', { target:'#pending-section', swap:'outerHTML' });
-          showToast(`<div class="notif-toast bg-paper border border-rule rounded-xl px-4 py-3 shadow-lg">
-            <p class="text-xs font-semibold text-ink">Friend request</p>
-            <p class="text-xs text-ink-muted mt-0.5"><strong class="text-ink">${data.sender_username}</strong> wants to connect</p>
-          </div>`, 6000);
-          break;
+      socket.onopen = function() {
+        console.log("PulsarMini: WebSocket connected");
+        reconnectDelay = 1000;
+        wsStatus.className = 'connected';
+      };
 
-        case 'friend.accepted':
-          htmx.ajax('GET', '/friends/sidebar-partial', { target:'#sidebar', swap:'outerHTML' });
-          showToast(`<div class="notif-toast bg-paper border border-rule rounded-xl px-4 py-3 shadow-lg">
-            <p class="text-xs font-semibold text-ink">Now connected</p>
-            <p class="text-xs text-ink-muted mt-0.5"><strong class="text-ink">${data.friend_username}</strong> accepted your request</p>
-          </div>`, 5000);
-          break;
+      socket.onmessage = function(event) {
+        let data;
+        try { data = JSON.parse(event.data); } catch(e) { return; }
 
-        case 'message.created':
-          markUnread(data.sender_username);
-          showToast(`<div class="notif-toast bg-paper border border-rule rounded-xl px-4 py-3 shadow-lg">
-            <p class="text-xs font-semibold text-ink">New message</p>
-            <p class="text-xs text-ink-muted mt-0.5"><strong class="text-ink">${data.sender_username}</strong>: ${data.content.substring(0,50)}${data.content.length>50?'…':''}</p>
-          </div>`, 6000, `/chat/${data.sender_username}`);
-          break;
+        switch(data.type) {
 
-        case 'pulse.message.created':
-          markUnread(data.sender_username);
-          showToast(`<div class="notif-toast bg-paper border border-rule rounded-xl px-4 py-3 shadow-lg">
-            <p class="text-xs font-semibold text-ink">⚡ Pulse message</p>
-            <p class="text-xs text-ink-muted mt-0.5"><strong class="text-ink">${data.sender_username}</strong>: ${data.content.substring(0,50)}${data.content.length>50?'…':''}</p>
-          </div>`, 7000, `/chat/${data.sender_username}`);
-          break;
-      }
-    };
+          case 'friend.requested':
+            htmx.ajax('GET', '/friends/pending-partial', { target:'#pending-section', swap:'outerHTML' });
+            showToast(`<div class="notif-toast bg-paper border border-rule rounded-xl px-4 py-3 shadow-lg">
+              <p class="text-xs font-semibold text-ink">Friend request</p>
+              <p class="text-xs text-ink-muted mt-0.5"><strong class="text-ink">${data.sender_username}</strong> wants to connect</p>
+            </div>`, 6000);
+            break;
 
-    socket.onclose = () => console.log("PulsarMini: WS closed");
-    socket.onerror = (e) => console.error("PulsarMini: WS error", e);
+          case 'friend.accepted':
+            htmx.ajax('GET', '/friends/sidebar-partial', { target:'#sidebar', swap:'outerHTML' });
+            showToast(`<div class="notif-toast bg-paper border border-rule rounded-xl px-4 py-3 shadow-lg">
+              <p class="text-xs font-semibold text-ink">Now connected</p>
+              <p class="text-xs text-ink-muted mt-0.5"><strong class="text-ink">${data.friend_username}</strong> accepted your request</p>
+            </div>`, 5000);
+            break;
+
+          case 'message.created':
+            markUnread(data.sender_username);
+            showToast(`<div class="notif-toast bg-paper border border-rule rounded-xl px-4 py-3 shadow-lg">
+              <p class="text-xs font-semibold text-ink">New message</p>
+              <p class="text-xs text-ink-muted mt-0.5"><strong class="text-ink">${data.sender_username}</strong>: ${data.content.substring(0,50)}${data.content.length>50?'…':''}</p>
+            </div>`, 6000, `/chat/${data.sender_username}`);
+            break;
+
+          case 'pulse.message.created':
+            markUnread(data.sender_username);
+            showToast(`<div class="notif-toast bg-paper border border-rule rounded-xl px-4 py-3 shadow-lg">
+              <p class="text-xs font-semibold text-ink">⚡ Pulse message</p>
+              <p class="text-xs text-ink-muted mt-0.5"><strong class="text-ink">${data.sender_username}</strong>: ${data.content.substring(0,50)}${data.content.length>50?'…':''}</p>
+            </div>`, 7000, `/chat/${data.sender_username}`);
+            break;
+        }
+      };
+
+      socket.onclose = function(event) {
+        wsStatus.className = 'reconnecting';
+        console.log(`PulsarMini: WebSocket closed (code ${event.code}), reconnecting in ${reconnectDelay}ms`);
+        setTimeout(() => {
+          reconnectDelay = Math.min(reconnectDelay * 2, maxDelay);
+          connectWebSocket();
+        }, reconnectDelay);
+      };
+
+      socket.onerror = (e) => console.error("PulsarMini: WebSocket error", e);
+    }
+
+    connectWebSocket();
   </script>
 
 </body>
