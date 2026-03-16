@@ -3,8 +3,8 @@ package db
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"strings"
 
@@ -17,39 +17,19 @@ func InitRedis() *redis.Client {
 	var rdb *redis.Client
 
 	if rawURL != "" {
-		// ── Managed Redis (Leapcell, Heroku, Render, etc.) ──────────
-		// Many providers give a redis:// URL even though the server
-		// requires TLS. We normalise to rediss:// so ParseURL enables
-		// TLS, then set InsecureSkipVerify because managed providers
-		// typically use self-signed or provider-signed certificates.
-		//
-		// Also percent-encode special characters in the password
-		// (+, /, =, @) that would otherwise break URL parsing.
-		normalised := normRedisURL(rawURL)
-
-		opt, err := redis.ParseURL(normalised)
+		opt, err := parseRedisURL(rawURL)
 		if err != nil {
 			log.Fatalf("redis: failed to parse REDIS_URL: %v", err)
 		}
-
-		// Force TLS with certificate verification disabled.
-		// This is safe for managed cloud Redis where the host is
-		// authenticated by the provider — we just can't verify the
-		// certificate chain ourselves.
-		opt.TLSConfig = &tls.Config{
-			InsecureSkipVerify: true, //nolint:gosec
-		}
-
 		rdb = redis.NewClient(opt)
-		log.Println("redis: connecting via REDIS_URL (TLS)")
+		log.Printf("redis: connecting to %s (TLS)", opt.Addr)
 	} else {
-		// ── Local development ────────────────────────────────────────
 		addr := os.Getenv("REDIS_ADDR")
 		if addr == "" {
 			addr = "localhost:6379"
 		}
 		rdb = redis.NewClient(&redis.Options{Addr: addr})
-		log.Printf("redis: connecting to %s (no TLS)", addr)
+		log.Printf("redis: connecting to %s (plain)", addr)
 	}
 
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
@@ -60,31 +40,78 @@ func InitRedis() *redis.Client {
 	return rdb
 }
 
-// normRedisURL normalises a Redis URL for use with redis.ParseURL:
-//  1. Converts redis:// → rediss:// so TLS is enabled by ParseURL.
-//  2. Percent-encodes special characters in the password so the URL
-//     parser doesn't misinterpret + / = @ as structural characters.
-func normRedisURL(raw string) string {
-	// Step 1 — upgrade scheme to TLS
-	normalised := strings.Replace(raw, "redis://", "rediss://", 1)
-
-	// Step 2 — encode special chars in password
-	parsed, err := url.Parse(normalised)
-	if err != nil {
-		// Can't parse — return as-is and let redis.ParseURL report the error
-		return normalised
+// parseRedisURL manually extracts host, port, username, and password
+// from a Redis URL without using Go's net/url parser.
+//
+// This is necessary because managed Redis providers (Leapcell, Heroku,
+// Render, Railway) generate passwords containing +, /, = and other
+// characters that are structurally significant in URLs. Using url.Parse
+// or redis.ParseURL on these raw URLs corrupts the password.
+//
+// Supports:
+//   redis://password@host:port
+//   redis://username:password@host:port
+//   rediss://username:password@host:port   (TLS)
+//
+// TLS is always enabled for managed Redis regardless of scheme.
+func parseRedisURL(raw string) (*redis.Options, error) {
+	// ── Strip scheme ──────────────────────────────────────────────
+	s := raw
+	tls_ := true // always use TLS for managed Redis
+	if strings.HasPrefix(s, "rediss://") {
+		s = strings.TrimPrefix(s, "rediss://")
+	} else if strings.HasPrefix(s, "redis://") {
+		s = strings.TrimPrefix(s, "redis://")
+	} else {
+		return nil, fmt.Errorf("unsupported scheme in REDIS_URL (expected redis:// or rediss://)")
 	}
 
-	if parsed.User != nil {
-		user := parsed.User.Username()
-		pass, hasPass := parsed.User.Password()
-		if hasPass {
-			// url.QueryEscape encodes space as +; use PathEscape instead
-			// which encodes space as %20 and leaves more chars readable,
-			// but critically encodes + / @ which break the URL structure.
-			parsed.User = url.UserPassword(user, url.PathEscape(pass))
+	// ── Split credentials from host ───────────────────────────────
+	// The last @ separates credentials from the host. Using the LAST
+	// @ handles passwords that themselves contain @ signs.
+	lastAt := strings.LastIndex(s, "@")
+	if lastAt == -1 {
+		return nil, fmt.Errorf("REDIS_URL missing @ separator between credentials and host")
+	}
+	credentials := s[:lastAt]
+	hostPort    := s[lastAt+1:]
+
+	// ── Parse credentials ─────────────────────────────────────────
+	// Format is either "password" or "username:password".
+	// The password may contain colons, so we split on the FIRST colon only.
+	var username, password string
+	colonIdx := strings.Index(credentials, ":")
+	if colonIdx == -1 {
+		// No colon — treat the whole thing as the password (Redis default user)
+		password = credentials
+	} else {
+		username = credentials[:colonIdx]
+		password = credentials[colonIdx+1:]
+		// Passwords that are just the username with no password
+		// (e.g. "default:" with empty password) are fine — password stays ""
+	}
+
+	// ── Validate host:port ────────────────────────────────────────
+	if hostPort == "" {
+		return nil, fmt.Errorf("REDIS_URL missing host")
+	}
+
+	// ── Build options ─────────────────────────────────────────────
+	opt := &redis.Options{
+		Addr:     hostPort,
+		Username: username,
+		Password: password,
+	}
+
+	if tls_ {
+		opt.TLSConfig = &tls.Config{
+			InsecureSkipVerify: true, //nolint:gosec
+			// Managed Redis providers use self-signed or provider-signed
+			// certs. We enable TLS for encryption but cannot verify the
+			// certificate chain. This is the documented approach for
+			// Heroku, Render, Railway, and Leapcell managed Redis.
 		}
 	}
 
-	return parsed.String()
+	return opt, nil
 }
