@@ -45,7 +45,7 @@ tailwind/dist/
 # ── Compiled CSS (generated — always rebuild from source) ─────────
 # Comment this out if you prefer to commit the compiled CSS
 # so deployments don't need a Node build step.
-static/css/tailwind.css
+# static/css/tailwind.css
 
 # ── OS / editor ───────────────────────────────────────────────────
 .DS_Store
